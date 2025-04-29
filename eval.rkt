@@ -8,7 +8,8 @@
 ;; W01610772                         ;;
 ;;                                   ;;
 ;; The purpose of this program is to ;;
-;; yadda yadda                       ;;
+;; begin building an interpreter for ;;
+;; scheme                            ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; temp
@@ -21,27 +22,42 @@
 ; Output - value of symbol, any type
 (define lookup
   (lambda (sym en)
-    (cond ((not (symbol? sym)) "error, sym argument not a symbol") ; errors if first arg no symbol
-          ((equal? en '()) "error, symbol not found in environment") ; errors if symbol not in environment
+    (cond ((not (symbol? sym)) (error "error, sym argument not a symbol")) ; errors if first arg no symbol
+          ((equal? en '()) (error "error, symbol not found in environment")) ; errors if symbol not in environment
           ((equal? sym (caar en)) (cadar en)) ; ends recursion if symbol is found, returns value of symbol
           (else (lookup sym (cdr en)))))) ; continues recursion
 
+; iterates through a list applying a proc to each entry
+(define procede
+  (lambda (proc lst)
+    (if (not (equal? proc list))
+         (if (= (length lst) 1)
+                (car lst)
+                (proc (car lst) (procede proc (cdr lst))))
+         (if (= (length lst) 1)
+             (proc (car lst))
+             (cons (car lst) (procede proc (cdr lst)))))))
+
+; Input an expression (either a number or symbol) to evaluate, and an environment (list)
+; Outputs an expression or an error
 (define evaluate
   (lambda (ex en)
-    (cond ((number? ex) ex)
+    (begin
+      ;(display ex)
+      (cond ((number? ex) ex)
           ((symbol? ex) (lookup ex en))
           ((list? ex) ; just if, then is below
-           (if (not (procedure? (lookup (car ex) en)))
-               "error, first argument is not a procedure"
-               ; what fucks me over is down here, can't recur through cdr because
-               ; cdr doesn't start with procedure
-               ; map: all lists must be the same size
-               ; rn this outputs the cdr of ex added to itself, needs to output total of expression
-               (map
-                (lambda (x)
-                  ((lookup (car ex) en) x (evaluate x en)))
-                (cdr ex))))
-          (else "undefined error"))))
-               
-          
+           (if (not (procedure? (evaluate (car ex) en)))
+               (begin
+                 ;(display (evaluate (car ex) en))
+                 (error "error, first argument is not a procedure"))
+               ; 
+               (procede (evaluate (car ex) en) (map (lambda (x)
+                      (evaluate x en))
+                    (cdr ex)))))
+          (else (error "undefined error"))))))
+
+(provide lookup)
+(provide procede)
+(provide evaluate)
         
