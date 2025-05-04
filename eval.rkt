@@ -12,7 +12,6 @@
 ;; scheme                            ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;temp, del later
 (define add
   (lambda (a b)
     (cond ((number? a) (+ a b))
@@ -22,7 +21,6 @@
 (define e1  (map list
                  '(     x  y  z ls + - * cons car cdr nil list add = nil? else)
                  (list 10 20 30 (list 1 2) + - * cons car cdr '() list add = empty? #t)))
-
 
 ; Checks if given symbol is in environment, returns what symbol represents, else returns string error 
 ; Input - sym: symbol to check for, en: list of lists to check inside
@@ -37,16 +35,35 @@
 ; iterates through a list applying a proc to each entry
 (define procede
   (lambda (proc lst)
+    (begin
+      ;(display proc)
+      ;(display "p ")
+      ;(display lst)
+      ;(display "lst ")
+      ;(display (car lst))
+      ;(display "car ")
     (if (not (equal? proc list))
          (if (= (length lst) 1)
-                (car lst)
-                (proc (car lst) (procede proc (cdr lst))))
+             (begin
+               ;(display "11 ")
+                (if (and (list? (car lst)) (not (equal? proc cons)))
+                    (proc (car lst))
+                    (car lst)))
+             (begin
+               ;(display "12 ")
+                (proc (car lst) (procede proc (cdr lst)))))
          (if (= (length lst) 1)
-             (proc (car lst))
-             (cons (car lst) (procede proc (cdr lst)))))))
+             (begin
+               ;(display "21 ")
+               (proc (car lst)))
+             (begin
+               ;(display "22 ")
+               (cons (car lst) (procede proc (cdr lst)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;lab 4, 04/29/25
+
+;; 1 error now!!!!
 
 ; checks if a list begins with 'if or 'cond
 ; Input: lst, a list or a value (always outputs false if not a list)
@@ -62,26 +79,39 @@
 ; Output: if boolean is true, val-if-true, if false, val-if-false, errors otherwise
 (define special-form-if
   (lambda (ex en)
-    (let ((arg1 (evaluate (car ex) en))) ; for convenience
-      (cond ((not (boolean? arg1)) ; first arg not boolean case
+    (let ((a (evaluate (car ex) en))) ; for convenience
+      (cond ((not (boolean? a)) ; first arg not boolean case
              (begin
-               (display arg1)
+               ;(display a) ; comment out when done
                (error "special-form-if: evaluate doesn't poop out boolean")))
             ((not (= (length ex) 3)) ; ex wrong length case
              (begin
-               (display ex)
+               ;(display ex) ; comment out when done
                (error "special-form-if: length of ex not 3")))
-            ; fails, asks for "application: not a procedure; expected a procedure that can be applied to arguments. given: #t"
-            ; basically, it wants what is in the function to be a procedure, or arg1 to be defined as a procedure
-            ((arg1) (evaluate (cadr ex) en)) ; true case
+            ; if test's bugging, might need to change evaluate to
+            ; just outputting cadr ex or caddr ex
+            ((equal? a #t) (evaluate (cadr ex) en)) ; true case
             (else (evaluate (caddr ex) en)))))) ; false
 
+; evals for special-form-cond
+; Input: list ex of lists, last one containing an else, and en an environment
+; Output: The val of the true condition, otherwise, val of else
 (define special-form-cond
   (lambda (ex en)
-    (if (special-form? ex)
-        (display en)
-        "o"))) 
+    (if (equal? ex '()) ; check if else exists, or succeeds
+        (error "cond: else doesn't work")
+        (let ((a (evaluate (caar ex) en))) ; convenience, condition
+          (cond ((not (boolean? a)) ; caar ex not boolean case
+                 (begin
+                   ;(display a)
+                   (error "special-form-cond: evaluate doesn't poop out boolean")))
+                ; cdar outputs a list, if cdar is length 1, needs to output cadar
+                ((equal? a #t) (if (= (length (cdar ex)) 1)
+                                   (evaluate (cadar ex) en)
+                                   (evaluate (cdar ex) en))) ; true case
+                (else (special-form-cond (cdr ex) en))))))) ; recurs until finish
 
+; evaluates a special-form, calls special-form-if and special-form-cond
 (define evaluate-special-form
   (lambda (ex en)
     (cond ((not (special-form? ex)) (error "evaluate-special-form: ex is not a special-form"))
@@ -113,4 +143,8 @@
 (provide lookup)
 (provide procede)
 (provide evaluate)
+(provide special-form?)
+(provide special-form-if)
+(provide special-form-cond)
+(provide evaluate-special-form)
         
