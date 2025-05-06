@@ -2,25 +2,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CSCI 301, Spring 2025             ;;
 ;;                                   ;;
-;; Lab #3                            ;;
+;; Lab #5                            ;;
 ;;                                   ;;
 ;; Max Dickerson                     ;;
 ;; W01610772                         ;;
 ;;                                   ;;
 ;; The purpose of this program is to ;;
 ;; begin building an interpreter for ;;
-;; scheme                            ;;
+;; scheme, add let                   ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(define add
-  (lambda (a b)
-    (cond ((number? a) (+ a b))
-          ((list? a) (append a b))
-          (else (error "unable to add" a b)))))
-
-(define e1  (map list
-                 '(     x  y  z ls + - * cons car cdr nil list add = nil? else)
-                 (list 10 20 30 (list 1 2) + - * cons car cdr '() list add = empty? #t)))
 
 ; Checks if given symbol is in environment, returns what symbol represents, else returns string error 
 ; Input - sym: symbol to check for, en: list of lists to check inside
@@ -63,15 +53,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;lab 4, 04/29/25
 
-;; 1 error now!!!!
-
-; checks if a list begins with 'if or 'cond
+; checks if a list begins with 'if or 'cond or 'let
 ; Input: lst, a list or a value (always outputs false if not a list)
 ; Output: boolean, #t if first value of list is 'if or 'cond, #f otherwise
 (define special-form?
   (lambda (lst)
     (cond ((not (list? lst)) #f) ; not a list case
-          ((or (equal? (car lst) 'if) (equal? (car lst) 'cond)) #t) ; begins with 'if or 'cond case
+          ((or (equal? (car lst) 'if) (equal? (car lst) 'cond) (equal? (car lst) 'let)) #t) ; begins with 'if or 'cond or 'let case
           (else #f))))
 
 ; evals for special-form-if
@@ -111,11 +99,27 @@
                                    (evaluate (cdar ex) en))) ; true case
                 (else (special-form-cond (cdr ex) en))))))) ; recurs until finish
 
-; evaluates a special-form, calls special-form-if and special-form-cond
+; evals for special-form-let
+; input: list lst of lists of pairs '(sym1 exp1), expression expr
+; to be expressed with sym in lst, list old-en the environment, list new-en
+; the added environment for recursion
+; output: output of expr using syms defined in lst and old-en
+(define special-form-let
+  (lambda (lst expr old-en new-en)
+    (if (equal? lst '())
+        (evaluate expr new-en) ; base case is just value of expr
+        ; recurs through lst, keeps expr and old-en, new-en gets (sym1 exp1) in lst appended
+        (special-form-let (cdr lst) expr old-en (append (list (list (caar lst) (evaluate (cadar lst) old-en))) new-en)))))
+    
+
+; evaluates a special-form, calls special-form-if, special-form-cond, special-form-let
+; input: list ex containing expression to be evaluated, list en containing environment to eval from
+; output: evaluation of special form
 (define evaluate-special-form
   (lambda (ex en)
     (cond ((not (special-form? ex)) (error "evaluate-special-form: ex is not a special-form"))
           ((equal? (car ex) 'if) (special-form-if (cdr ex) en))
+          ((equal? (car ex) 'let) (special-form-let (cadr ex) (caddr ex) en en))
           ((equal? (car ex) 'cond) (special-form-cond (cdr ex) en)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -147,4 +151,5 @@
 (provide special-form-if)
 (provide special-form-cond)
 (provide evaluate-special-form)
+(provide special-form-let)
         
