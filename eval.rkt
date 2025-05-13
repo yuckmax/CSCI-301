@@ -2,14 +2,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CSCI 301, Spring 2025             ;;
 ;;                                   ;;
-;; Lab #5                            ;;
+;; Lab #6                            ;;
 ;;                                   ;;
 ;; Max Dickerson                     ;;
 ;; W01610772                         ;;
 ;;                                   ;;
 ;; The purpose of this program is to ;;
 ;; begin building an interpreter for ;;
-;; scheme, add let                   ;;
+;; scheme, add lambda                ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; Checks if given symbol is in environment, returns what symbol represents, else returns string error 
@@ -59,7 +59,7 @@
 (define special-form?
   (lambda (lst)
     (cond ((not (list? lst)) #f) ; not a list case
-          ((or (equal? (car lst) 'if) (equal? (car lst) 'cond) (equal? (car lst) 'let)) #t) ; begins with 'if or 'cond or 'let case
+          ((or (equal? (car lst) 'if) (equal? (car lst) 'cond) (equal? (car lst) 'let) (equal? (car lst) 'lambda)) #t) ; begins with 'if or 'cond or 'let case
           (else #f))))
 
 ; evals for special-form-if
@@ -120,8 +120,34 @@
     (cond ((not (special-form? ex)) (error "evaluate-special-form: ex is not a special-form"))
           ((equal? (car ex) 'if) (special-form-if (cdr ex) en))
           ((equal? (car ex) 'let) (special-form-let (cadr ex) (caddr ex) en en))
+          ;lab 6, lambda just outputs closure for now
+          ((equal? (car ex) 'lambda) (closure (cadr ex) (caddr ex) en))
           ((equal? (car ex) 'cond) (special-form-cond (cdr ex) en)))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;lab 6, 5/13/25
+; 6 errors, 5 fixable
+; also 164-169
+
+; copy paste from lab sheet
+(define closure (lambda (vars body env) (list 'closure vars body env)))
+(define closure? (lambda (clos) (and (pair? clos) (eq? (car clos) 'closure))))
+(define closure-vars cadr)
+(define closure-body caddr)
+(define closure-env cadddr)
+
+;adds '(clos-vars args) to local environment, evaluates clos-body in that environment
+;seems to work
+(define apply-closure
+  (lambda (clos args)
+    (evaluate (closure-body clos) (append (map list (closure-vars clos) args) (closure-env clos)))))
+
+(provide apply-closure)
+(provide closure)
+(provide closure?)
+(provide closure-vars)
+(provide closure-body)
+(provide closure-env)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; Input an expression (either a number or symbol) to evaluate, and an environment (list)
@@ -136,8 +162,13 @@
           ((list? ex) ; just if, then is below
            (if (not (procedure? (evaluate (car ex) en)))
                (begin
-                 ;(display (evaluate (car ex) en))
-                 (error "error, first argument is not a procedure"))
+                 (display (evaluate (car ex) en))
+                 ; seems to fuck up if cdr is not numbers
+                 ; possibly because lack of apply-function function from lab sheet
+                 ; need to evaluate cdr somehow I think
+                 (if (closure? (evaluate (car ex) en))
+                     (apply-closure (evaluate (car ex) en) (cdr ex))
+                     (error "error, first argument is not a procedure")))
                ; 
                (procede (evaluate (car ex) en) (map (lambda (x)
                       (evaluate x en))
