@@ -12,92 +12,93 @@
 ;; scheme, add lambda                ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; lab 3 - redone 05/18/25 - Max Dickerson
+
 ; Checks if given symbol is in environment, returns what symbol represents, else returns string error 
 ; Input - sym: symbol to check for, en: list of lists to check inside
 ; Output - value of symbol, any type
 (define lookup
   (lambda (sym en)
-    (cond ((not (symbol? sym)) (error "error, sym argument not a symbol")) ; errors if first arg no symbol
-          ((equal? en '()) (error "error, symbol not found in environment")) ; errors if symbol not in environment
-          ((equal? sym (caar en)) (cadar en)) ; ends recursion if symbol is found, returns value of symbol
-          (else (lookup sym (cdr en)))))) ; continues recursion
+    (cond ((not (symbol? sym)) (error "lookup: sym is not a symbol"))
+          ((equal? en '()) (error "lookup: sym not found in en")) ; errors if symbol not in environment
+            ((equal? sym (caar en)) (cadar en)) ; ends recursion if symbol is found, returns value of symbol
+            (else (lookup sym (cdr en)))))) ; continues recursion
 
-; iterates through a list applying a proc to each entry
-(define procede
-  (lambda (proc lst)
-    (begin
-      ;(display proc)
-      ;(display "p ")
-      ;(display lst)
-      ;(display "lst ")
-      ;(display (car lst))
-      ;(display "car ")
-    (if (not (equal? proc list))
-         (if (= (length lst) 1)
-             (begin
-               ;(display "11 ")
-                (if (and (list? (car lst)) (not (equal? proc cons)))
-                    (proc (car lst))
-                    (car lst)))
-             (begin
-               ;(display "12 ")
-                (proc (car lst) (procede proc (cdr lst)))))
-         (if (= (length lst) 1)
-             (begin
-               ;(display "21 ")
-               (proc (car lst)))
-             (begin
-               ;(display "22 ")
-               (cons (car lst) (procede proc (cdr lst)))))))))
+; Input an expression (either a number or symbol) to evaluate, and an environment (list)
+; Outputs an expression or an error
+(define evaluate
+  (lambda (expr en)
+    (cond ((number? expr) expr)
+          ((symbol? expr) (lookup expr en))
+          ((special-form? expr) (evaluate-special-form expr en)) ; lab 4
+          ((list? expr) ; lab 6
+           (apply-function (evaluate (car expr) en) (map (lambda (x) (evaluate x en)) (cdr expr))))
+          (else (error "evaluate - else: undefined error")))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;lab 4, 04/29/25
+(provide lookup)
+(provide evaluate)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; lab 4 - redone 05/18/25 - Max Dickerson
 
-; checks if a list begins with 'if or 'cond or 'let
-; Input: lst, a list or a value (always outputs false if not a list)
-; Output: boolean, #t if first value of list is 'if or 'cond, #f otherwise
+; checks if input is special form
+; Input - list
+; Output - false if lst not list, or if (car lst) is not 'if,'cond,'let,'lambda, otherwise true
 (define special-form?
   (lambda (lst)
-    (cond ((not (list? lst)) #f) ; not a list case
-          ((or (equal? (car lst) 'if) (equal? (car lst) 'cond) (equal? (car lst) 'let) (equal? (car lst) 'lambda)) #t) ; begins with 'if or 'cond or 'let case
+    (cond ((not (list? lst)) #f)
+          ((or (equal? (car lst) 'if)
+               (equal? (car lst) 'cond)
+               ; lab 5:
+               (equal? (car lst) 'let)
+               ; lab 6:
+               (equal? (car lst) 'lambda))) 
           (else #f))))
 
 ; evals for special-form-if
 ; Input: list ex, in form '(boolean val-if-true val-if-false), and en environment
 ; Output: if boolean is true, val-if-true, if false, val-if-false, errors otherwise
 (define special-form-if
-  (lambda (ex en)
-    (let ((a (evaluate (car ex) en))) ; for convenience
-      (cond ((not (boolean? a)) ; first arg not boolean case
-             (begin
-               ;(display a) ; comment out when done
-               (error "special-form-if: evaluate doesn't poop out boolean")))
-            ((not (= (length ex) 3)) ; ex wrong length case
-             (begin
-               ;(display ex) ; comment out when done
-               (error "special-form-if: length of ex not 3")))
-            ; if test's bugging, might need to change evaluate to
-            ; just outputting cadr ex or caddr ex
-            ((equal? a #t) (evaluate (cadr ex) en)) ; true case
-            (else (evaluate (caddr ex) en)))))) ; false
+  (lambda (expr en)
+    (let ((a (evaluate (car expr) en))) ; for convenience
+      (cond ((not (boolean? a)) (error "special-form-if: evaluate doesn't poop out boolean"))
+            ((not (= (length expr) 3)) (error "special-form-if: length of ex not 3"))
+            ((equal? a #t) (evaluate (cadr expr) en)) ; true case
+            (else (evaluate (caddr expr) en)))))) ; false
 
 ; evals for special-form-cond
 ; Input: list ex of lists, last one containing an else, and en an environment
 ; Output: The val of the true condition, otherwise, val of else
 (define special-form-cond
-  (lambda (ex en)
-    (if (equal? ex '()) ; check if else exists, or succeeds
+  (lambda (expr en)
+    (if (equal? expr '()) ; check if else exists, or succeeds
         (error "cond: else doesn't work")
-        (let ((a (evaluate (caar ex) en))) ; convenience, condition
-          (cond ((not (boolean? a)) ; caar ex not boolean case
-                 (begin
-                   ;(display a)
-                   (error "special-form-cond: evaluate doesn't poop out boolean")))
+        (let ((a (evaluate (caar expr) en))) ; convenience, condition
+          (cond ((not (boolean? a)) (error "special-form-cond: evaluate doesn't poop out boolean"))
                 ; cdar outputs a list, if cdar is length 1, needs to output cadar
-                ((equal? a #t) (if (= (length (cdar ex)) 1)
-                                   (evaluate (cadar ex) en)
-                                   (evaluate (cdar ex) en))) ; true case
-                (else (special-form-cond (cdr ex) en))))))) ; recurs until finish
+                ((equal? a #t) (if (= (length (cdar expr)) 1)
+                                   (evaluate (cadar expr) en)
+                                   (evaluate (cdar expr) en))) ; true case
+                (else (special-form-cond (cdr expr) en))))))) ; recurs until finish
+
+; evaluates special form, redirects to special-form-if, special-form-cond, special-form-let
+; Input - expression, environment
+; Output - error if not special form, otherwise evaluates the special form
+(define evaluate-special-form
+  (lambda (expr en)
+    (cond ((not (special-form? expr)) (error "evaluate-special-form: expr is not a special form"))
+          ((equal? (car expr) 'if) (special-form-if (cdr expr) en))
+          ((equal? (car expr) 'cond) (special-form-cond (cdr expr) en))
+          ((equal? (car expr) 'let) (special-form-let (cadr expr) (caddr expr) en en)) ; lab 5
+          ((equal? (car expr) 'lambda) (closure (cadr expr) (caddr expr) en)) ; lab 6
+          (else (error "evaluate-special-form: else case")))))
+
+(provide special-form?)
+(provide special-form-if)
+(provide special-form-cond)
+(provide evaluate-special-form)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; lab 5 - copy-paste 05/19/25 - Max Dickerson
 
 ; evals for special-form-let
 ; input: list lst of lists of pairs '(sym1 exp1), expression expr
@@ -110,77 +111,39 @@
         (evaluate expr new-en) ; base case is just value of expr
         ; recurs through lst, keeps expr and old-en, new-en gets (sym1 exp1) in lst appended
         (special-form-let (cdr lst) expr old-en (append (list (list (caar lst) (evaluate (cadar lst) old-en))) new-en)))))
-    
 
-; evaluates a special-form, calls special-form-if, special-form-cond, special-form-let
-; input: list ex containing expression to be evaluated, list en containing environment to eval from
-; output: evaluation of special form
-(define evaluate-special-form
-  (lambda (ex en)
-    (cond ((not (special-form? ex)) (error "evaluate-special-form: ex is not a special-form"))
-          ((equal? (car ex) 'if) (special-form-if (cdr ex) en))
-          ((equal? (car ex) 'let) (special-form-let (cadr ex) (caddr ex) en en))
-          ;lab 6, lambda just outputs closure for now
-          ((equal? (car ex) 'lambda) (closure (cadr ex) (caddr ex) en))
-          ((equal? (car ex) 'cond) (special-form-cond (cdr ex) en)))))
+(provide special-form-let)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; lab 6 - redone 05/19/25 - Max Dickerson
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;lab 6, 5/13/25
-; 6 errors, 5 fixable
-; also 164-169
-
-; copy paste from lab sheet
+; closure data-type
 (define closure (lambda (vars body env) (list 'closure vars body env)))
 (define closure? (lambda (clos) (and (pair? clos) (eq? (car clos) 'closure))))
 (define closure-vars cadr)
 (define closure-body caddr)
 (define closure-env cadddr)
 
-;adds '(clos-vars args) to local environment, evaluates clos-body in that environment
-;seems to work
-(define apply-closure
-  (lambda (clos args)
-    (evaluate (closure-body clos) (append (map list (closure-vars clos) args) (closure-env clos)))))
+; applies a procedure or closure to the rest of a list
+; Input - former = evaluated car of a list, either a closure or a procedure,
+; latter = evaluated cdr of a list
+; Output - application of the function, errors if former is not a procedure or closure
+(define apply-function
+  (lambda (former latter) ; former is car, latter is cdr
+    (cond ((procedure? former) (apply former latter))
+          ((closure? former) (apply-closure former latter))
+          (else (error "apply-function: unknown function type")))))
 
-(provide apply-closure)
+; adds '(clos-vars args) to local environment, evaluates clos-body in that environment
+; Input - clos = a closure, vals = list of values to apply
+; Output - evaluates the closure based on the values.
+(define apply-closure
+  (lambda (clos vals)
+    (evaluate (closure-body clos) (append (map list (closure-vars clos) vals) (closure-env clos)))))
+
 (provide closure)
 (provide closure?)
 (provide closure-vars)
 (provide closure-body)
 (provide closure-env)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-; Input an expression (either a number or symbol) to evaluate, and an environment (list)
-; Outputs an expression or an error
-(define evaluate
-  (lambda (ex en)
-    (begin
-      ;(display ex)
-      (cond ((number? ex) ex)
-          ((symbol? ex) (lookup ex en))
-          ((special-form? ex) (evaluate-special-form ex en)) ; lab 4
-          ((list? ex) ; just if, then is below
-           (if (not (procedure? (evaluate (car ex) en)))
-               (begin
-                 (display (evaluate (car ex) en))
-                 ; seems to fuck up if cdr is not numbers
-                 ; possibly because lack of apply-function function from lab sheet
-                 ; need to evaluate cdr somehow I think
-                 (if (closure? (evaluate (car ex) en))
-                     (apply-closure (evaluate (car ex) en) (cdr ex))
-                     (error "error, first argument is not a procedure")))
-               ; 
-               (procede (evaluate (car ex) en) (map (lambda (x)
-                      (evaluate x en))
-                    (cdr ex)))))
-          (else (error "undefined error"))))))
-
-(provide lookup)
-(provide procede)
-(provide evaluate)
-(provide special-form?)
-(provide special-form-if)
-(provide special-form-cond)
-(provide evaluate-special-form)
-(provide special-form-let)
-        
+(provide apply-function)
+(provide apply-closure)
