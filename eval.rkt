@@ -1,16 +1,16 @@
 #lang racket
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; CSCI 301, Spring 2025             ;;
-;;                                   ;;
-;; Lab #6                            ;;
-;;                                   ;;
-;; Max Dickerson                     ;;
-;; W01610772                         ;;
-;;                                   ;;
-;; The purpose of this program is to ;;
-;; begin building an interpreter for ;;
-;; scheme, add lambda                ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; CSCI 301, Spring 2025                           ;;
+;;                                                 ;;
+;; Lab #7                                          ;;
+;;                                                 ;;
+;; Max Dickerson                                   ;;
+;; W01610772                                       ;;
+;;                                                 ;;
+;; The purpose of this program is to               ;;
+;; finish building an interpreter for              ;;
+;; scheme, add letrec                              ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; lab 3 - redone 05/18/25 - Max Dickerson
@@ -52,7 +52,9 @@
                ; lab 5:
                (equal? (car lst) 'let)
                ; lab 6:
-               (equal? (car lst) 'lambda))) 
+               (equal? (car lst) 'lambda)
+               ; lab 7
+               (equal? (car lst) 'letrec))) 
           (else #f))))
 
 ; evals for special-form-if
@@ -91,6 +93,7 @@
           ((equal? (car expr) 'cond) (special-form-cond (cdr expr) en))
           ((equal? (car expr) 'let) (special-form-let (cadr expr) (caddr expr) en en)) ; lab 5
           ((equal? (car expr) 'lambda) (closure (cadr expr) (caddr expr) en)) ; lab 6
+          ((equal? (car expr) 'letrec) (special-form-letrec (cadr expr) (caddr expr) en en)) ; lab 7
           (else (error "evaluate-special-form: else case")))))
 
 (provide special-form?)
@@ -117,11 +120,11 @@
 ; lab 6 - redone 05/19/25 - Max Dickerson
 
 ; closure data-type
-(define closure (lambda (vars body env) (list 'closure vars body env)))
-(define closure? (lambda (clos) (and (pair? clos) (eq? (car clos) 'closure))))
-(define closure-vars cadr)
-(define closure-body caddr)
-(define closure-env cadddr)
+;(define closure (lambda (vars body env) (list 'closure vars body env)))
+;(define closure? (lambda (clos) (and (pair? clos) (eq? (car clos) 'closure))))
+;(define closure-vars cadr)
+;(define closure-body caddr)
+;(define closure-env cadddr)
 
 ; applies a procedure or closure to the rest of a list
 ; Input - former = evaluated car of a list, either a closure or a procedure,
@@ -147,3 +150,48 @@
 (provide closure-env)
 (provide apply-function)
 (provide apply-closure)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; lab 7 - finished 05/20/25 - Max Dickerson
+
+; mutable closure data-type lab 7 ver.
+(define closure
+  (lambda (vars body env)
+    (mcons 'closure (mcons env (mcons vars body)))))
+(define closure?
+  (lambda (clos) (and (mpair? clos) (eq? (mcar clos) 'closure))))
+(define closure-env
+  (lambda (clos) (mcar (mcdr clos))))
+(define closure-vars
+  (lambda (clos) (mcar (mcdr (mcdr clos)))))
+(define closure-body
+  (lambda (clos) (mcdr (mcdr (mcdr clos)))))
+(define set-closure-env!
+  (lambda (clos new-env) (set-mcar! (mcdr clos) new-env)))
+
+; evaluates the letrec special form
+; Input - same as let special form
+; Output - evaluates the expr using functions inside a letrec
+(define special-form-letrec
+  (lambda (lst expr old-en new-en)
+    (if (equal? lst '())
+        ; moves to helper function once done letting
+        (letrec-helper expr new-en '() new-en old-en)
+        ; recurs through lst, keeps expr and old-en, new-en gets (sym1 exp1) in lst appended, just like let
+        (special-form-letrec (cdr lst) expr old-en (append (list (list (caar lst) (evaluate (cadar lst) old-en))) new-en)))))
+
+; helps with the second half (changing closures for lambdas and evaluate) of letrec function
+; Input - expr: expression to evaluate, temp: new-en that gets recurred through,
+; mini-en: an environment that starts with an empty list, new-en: environment created in letrec,
+; old-en: environment outside of let form
+; Output: evaluates the expr using functions inside a letrec
+(define letrec-helper
+  (lambda (expr temp mini-en new-en old-en)
+    (if (equal? temp old-en)
+        (evaluate expr (append mini-en old-en)) ; base case
+        (begin
+          (set-closure-env! (cadar temp) new-en) ; sets closure env
+          (letrec-helper expr (cdr temp) (append mini-en (list (car temp))) new-en old-en))))) ; recurs through temp, creating mini-en in the process
+
+(provide set-closure-env!)
+(provide special-form-letrec)
+(provide letrec-helper)
